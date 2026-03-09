@@ -1,92 +1,32 @@
 pipeline {
-    agent { label 'git_pipeline' }
-    
-    options {
-        timestamps()
-    }
-    
+    agent any
+
     environment {
-        GIT_REPO = 'https://github.com/Tejabhinandan/devops_git_repo.git'
-        BRANCH = 'main'
+        IMAGE_NAME = "python-app-image"
+        CONTAINER_NAME = "python-app-container"
+        REPO_URL = "https://github.com/Tejabhinandan/devops_git_repo.git"
     }
-    
+
     stages {
-        stage('Checkout repo') {
-            steps {
-                git branch: BRANCH,
-                    url: GIT_REPO,
-                    credentialsId: '10efe33f-449e-4b54-8f94-ef5c5e0df665'
-            }
-        }
-        stage('Prepare tools') {
-            steps {
-                echo 'Installing required tools on ubuntu...'
-                sh '''
-                    set -e
-                    
-                    sudo apt-get update -y
-                    
-                    sudo apt-get install -y \
-                        python3 \
-                        cmake \
-                        python3-pip \
-                        curl
-                    sudo apt-get install -y pipx
-                    pipx install cmakelint
-                '''
-            }
-        }
-        stage('Lint') {
-            steps {
-                echo 'Running lint checks'
-                sh '''
-                    export PATH=$PATH:/home/ubuntu/.local/bin
 
-                    echo "Running lint checks"
-                    which cmakelint || echo "cmakelint not in PATH"
-                    cmakelint --version
-
-                    cmakelint CMakeLists.txt > lint_report.txt 2>&1 || true
-
-                    echo "Lint report generated:"
-                    cat lint_report.txt
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'lint_report.txt', fingerprint: true
-                }
-            }
-        }
-        stage('Build') {
+        stage('Checkout Code') {
             steps {
-                echo 'Running build with CMake...'
-                sh '''
-                    if [ -f CMakeLists.txt ]; then
-                        mkdir -p build
-                        cd build
-                        cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
-                        make -j$(nproc)
-                        cp compile_commands.json ..
-                    else
-                        echo "CMakeLists.txt not found!"
-                        exit 1
-                    fi
-                '''
+                git url: "${REPO_URL}", branch: "main"
             }
         }
-        stage('Unit Tests') {
+
+        stage('Build Docker Image') {
             steps {
-                sh '''
-                    cd build
-                    ctest --output-on-failure --test-output-junit test-results.xml || true
-                '''
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, testResults: 'build/test-results.xml'
-                }
+                sh 'docker build -t $IMAGE_NAME .'
             }
         }
+
+        stage('Run Docker Container') {
+            steps {
+                sh 'docker rm -f $CONTAINER_NAME || true'
+                sh 'docker run -d -p 8000:8000 --name $CONTAINER_NAME $IMAGE_NAME'
+            }
+        }
+
     }
 }
