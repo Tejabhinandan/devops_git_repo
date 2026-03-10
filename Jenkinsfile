@@ -9,11 +9,11 @@ pipeline {
 
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/Tejabhinandan/devops_git_repo.git'
+                git branch: 'main', url: 'https://github.com/Tejabhinandan/devops_git_repo.git'
             }
         }
 
-        stage('Docker Build Images') {
+        stage('Build Docker Images') {
             steps {
                 sh '''
                 docker build -t $DOCKER_USER/app1-python ./app1-python
@@ -60,5 +60,6 @@ pipeline {
                 '''
             }
         }
+
     }
 }
