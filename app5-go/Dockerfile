@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY main.go .
 
-RUN go build -o app
+RUN go mod init app && go build -o app
 
 EXPOSE 8080
 
